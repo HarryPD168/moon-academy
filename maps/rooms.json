@@ -1,0 +1,134 @@
+{
+  "title": "月下學園·開頭切片",
+  "theme": "moonlit gothic academy",
+  "tile": 32,
+  "view": { "width": 1280, "height": 720, "touchSafeBottom": 140 },
+  "start": { "room": "R1", "x": 640, "y": 496 },
+  "abilities": {
+    "dash": { "label": "衝刺", "gates": ["gap"] },
+    "doubleJump": { "label": "二段跳", "gates": ["highLedge"] }
+  },
+  "rooms": [
+    {
+      "id": "R1",
+      "name": "月下中庭",
+      "role": "hub",
+      "width": 2400,
+      "height": 720,
+      "background": "art/bg-courtyard.jpg",
+      "parallax": "art/bg-courtyard-far.jpg",
+      "palette": ["#1b1a38", "#c9d2e8", "#6b7ea8", "#d8c07a"],
+      "solids": [
+        { "x": 0, "y": 592, "w": 1760, "h": 128 },
+        { "x": 2000, "y": 592, "w": 400, "h": 128 },
+        { "x": 80, "y": 240, "w": 520, "h": 32, "note": "西側高台，需二段跳" },
+        { "x": 0, "y": 240, "w": 80, "h": 352 }
+      ],
+      "gaps": [
+        { "id": "east-bridge", "x": 1760, "y": 592, "w": 240, "h": 128, "need": "dash", "visibleFrom": "start" }
+      ],
+      "pits": [
+        { "id": "to-R5", "x": 1120, "y": 592, "w": 160, "h": 128, "to": "R5", "spawn": { "x": 200, "y": 80 }, "oneWayFall": true }
+      ],
+      "doors": [
+        { "id": "to-R2", "x": 16, "y": 496, "w": 48, "h": 96, "to": "R2", "spawn": { "x": 2280, "y": 496 } },
+        { "id": "to-R3", "x": 2320, "y": 496, "w": 48, "h": 96, "to": "R3", "spawn": { "x": 80, "y": 496 }, "need": "dash" },
+        { "id": "to-R4", "x": 96, "y": 144, "w": 48, "h": 96, "to": "R4", "spawn": { "x": 160, "y": 1200 }, "need": "doubleJump" }
+      ],
+      "checkpoints": [{ "id": "bench-hub", "x": 900, "y": 560 }],
+      "teases": [
+        "西側高台露出鐘樓暖燈與石階，現在跳不上去。",
+        "東側斷橋對面是圖書館窗光，缺口明顯寬過普通跳躍。"
+      ]
+    },
+    {
+      "id": "R2",
+      "name": "藤蔓西廊",
+      "role": "first-ability",
+      "width": 2200,
+      "height": 720,
+      "background": "art/bg-west-cloister.jpg",
+      "palette": ["#143028", "#6ea08a", "#cfe8d6", "#d8c07a"],
+      "solids": [
+        { "x": 0, "y": 592, "w": 2200, "h": 128 },
+        { "x": 720, "y": 448, "w": 200, "h": 32 },
+        { "x": 1080, "y": 360, "w": 200, "h": 32 },
+        { "x": 1680, "y": 480, "w": 360, "h": 32 }
+      ],
+      "doors": [
+        { "id": "to-R1", "x": 2140, "y": 496, "w": 48, "h": 96, "to": "R1", "spawn": { "x": 80, "y": 496 } }
+      ],
+      "pickups": [
+        { "id": "dash", "x": 1880, "y": 424, "ability": "dash", "note": "基本跳躍可到；取得後必須回中庭過斷橋" }
+      ],
+      "checkpoints": [{ "id": "bench-west", "x": 240, "y": 560 }]
+    },
+    {
+      "id": "R3",
+      "name": "東圖書館",
+      "role": "second-ability",
+      "width": 2000,
+      "height": 960,
+      "background": "art/bg-library.jpg",
+      "palette": ["#2a1a14", "#8a5a3a", "#e8c896", "#3a2a48"],
+      "solids": [
+        { "x": 0, "y": 832, "w": 2000, "h": 128 },
+        { "x": 320, "y": 640, "w": 280, "h": 32 },
+        { "x": 760, "y": 480, "w": 280, "h": 32 },
+        { "x": 1200, "y": 320, "w": 520, "h": 32 }
+      ],
+      "doors": [
+        { "id": "to-R1", "x": 16, "y": 736, "w": 48, "h": 96, "to": "R1", "spawn": { "x": 2280, "y": 496 } }
+      ],
+      "pickups": [
+        { "id": "doubleJump", "x": 1480, "y": 264, "ability": "doubleJump", "note": "用衝刺可助跑跳上中層，再走到上層臺座" }
+      ],
+      "checkpoints": [{ "id": "bench-library", "x": 160, "y": 800 }]
+    },
+    {
+      "id": "R4",
+      "name": "鐘樓",
+      "role": "landmark-finale",
+      "width": 1280,
+      "height": 1600,
+      "background": "art/bg-clocktower.jpg",
+      "palette": ["#1a2238", "#4a5a78", "#e8dcc0", "#d8a03a"],
+      "solids": [
+        { "x": 0, "y": 1472, "w": 1280, "h": 128 },
+        { "x": 80, "y": 1216, "w": 360, "h": 32 },
+        { "x": 840, "y": 1000, "w": 360, "h": 32 },
+        { "x": 80, "y": 784, "w": 360, "h": 32 },
+        { "x": 400, "y": 480, "w": 480, "h": 32 },
+        { "x": 240, "y": 240, "w": 800, "h": 32 }
+      ],
+      "doors": [
+        { "id": "to-R1", "x": 80, "y": 1376, "w": 48, "h": 96, "to": "R1", "spawn": { "x": 160, "y": 144 } }
+      ],
+      "arenas": [
+        { "id": "tower-top", "x": 240, "y": 80, "w": 800, "h": 160, "note": "頂層空間預留給戰鬥／小 Boss，此檔不放敵人" }
+      ],
+      "checkpoints": [{ "id": "bench-tower", "x": 200, "y": 1440 }]
+    },
+    {
+      "id": "R5",
+      "name": "舊校舍地下",
+      "role": "optional-pit",
+      "width": 1800,
+      "height": 720,
+      "background": "art/bg-basement.jpg",
+      "palette": ["#1a1410", "#4a3a32", "#7a8a6a", "#3a5060"],
+      "solids": [
+        { "x": 0, "y": 592, "w": 1800, "h": 128 },
+        { "x": 1280, "y": 400, "w": 200, "h": 32 },
+        { "x": 1560, "y": 240, "w": 240, "h": 32 }
+      ],
+      "gaps": [
+        { "id": "exit-gap", "x": 1480, "y": 240, "w": 80, "h": 32, "need": "dash", "note": "或用二段跳回到出口台" }
+      ],
+      "doors": [
+        { "id": "to-R1", "x": 1720, "y": 144, "w": 48, "h": 96, "to": "R1", "spawn": { "x": 1200, "y": 496 }, "need": "dash" }
+      ],
+      "checkpoints": [{ "id": "bench-basement", "x": 240, "y": 560 }]
+    }
+  ]
+}

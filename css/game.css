@@ -1,0 +1,155 @@
+:root {
+  --bg: #0e0d1c;
+  --panel: rgba(16, 14, 36, 0.82);
+  --ink: #f3ead7;
+  --muted: #b7c0d8;
+  --gold: #e2c56c;
+  --accent: #7ea0e8;
+  --safe: 140px;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#app {
+  height: 100%;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+#stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #090815;
+}
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #14122a;
+}
+#hud { position: absolute; inset: 0; pointer-events: none; }
+#tilt-hint { display: none; }
+.touch {
+  flex: 0 0 var(--safe);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px 10px;
+  background: linear-gradient(#16132c, #0c0b18);
+  border-top: 1px solid rgba(226, 197, 108, 0.25);
+}
+.dpad {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  flex: 0 0 132px;
+}
+.dpad button, .actions button {
+  appearance: none;
+  border: 1px solid rgba(243, 234, 215, 0.28);
+  color: var(--ink);
+  background: rgba(40, 44, 80, 0.85);
+  font-weight: 700;
+  pointer-events: auto;
+}
+.dpad button {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  font-size: 16px;
+}
+.d-up { left: 44px; top: 0; }
+.d-down { left: 44px; bottom: 0; }
+.d-left { left: 0; top: 44px; }
+.d-right { right: 0; top: 44px; }
+.actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.actions button {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  font-size: 14px;
+}
+#btn-jump {
+  width: 78px;
+  height: 78px;
+  background: rgba(80, 92, 168, 0.95);
+  font-size: 18px;
+}
+#btn-attack { background: rgba(140, 70, 110, 0.95); }
+#btn-interact { width: 58px; height: 58px; font-size: 13px; background: rgba(60, 96, 92, 0.95); }
+.touch button:active, .touch button.held {
+  transform: scale(0.96);
+  filter: brightness(1.25);
+}
+@media (orientation: landscape) and (min-height: 420px) {
+  #app { display: block; }
+  #stage { position: absolute; inset: 0; }
+  .touch {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    background: transparent;
+    border: 0;
+    pointer-events: none;
+    padding: 0 18px calc(8px + env(safe-area-inset-bottom));
+  }
+  .dpad, .actions { pointer-events: none; }
+  .dpad button, .actions button {
+    pointer-events: auto;
+    background: rgba(28, 30, 60, 0.55);
+    backdrop-filter: blur(4px);
+  }
+}
+@media (max-width: 420px) {
+  .dpad { width: 120px; height: 120px; flex-basis: 120px; }
+  .actions button { width: 56px; height: 56px; }
+  #btn-jump { width: 68px; height: 68px; }
+}
+
+/* portrait-pin: keep the 16:9 playfield at the top, controls at the bottom */
+@media (orientation: portrait) {
+  #stage {
+    align-items: flex-start;
+    justify-content: flex-start;
+    background: radial-gradient(ellipse at 50% 0%, #1a1730 0%, #090815 55%);
+  }
+  #game {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    max-height: calc(100dvh - var(--safe) - env(safe-area-inset-bottom) - env(safe-area-inset-top));
+    object-fit: contain;
+  }
+  .touch { flex-basis: 168px; padding-top: 12px; }
+}
+
+#tilt-hint {
+  display: none;
+  text-align: center;
+  color: #8a90a8;
+  font-size: 13px;
+  padding: 10px 12px 0;
+}
+@media (orientation: portrait) {
+  #tilt-hint { display: block; }
+}

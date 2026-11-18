@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#14122a">
+  <title>月下學園</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/player/front-sm.png">
+  <link rel="apple-touch-icon" href="assets/player/front.png">
+  <link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+  <div id="app">
+    <div id="stage">
+      <canvas id="game" width="1280" height="720"></canvas>
+      <div id="hud" aria-live="polite"></div>
+    </div>
+    <p id="tilt-hint">橫向遊玩時，畫面會更大、操作更順手。</p>
+    <div id="touch" class="touch">
+      <div class="dpad" id="dpad">
+        <button type="button" data-dir="up" class="d-up" aria-label="上">▲</button>
+        <button type="button" data-dir="left" class="d-left" aria-label="左">◀</button>
+        <button type="button" data-dir="right" class="d-right" aria-label="右">▶</button>
+        <button type="button" data-dir="down" class="d-down" aria-label="下">▼</button>
+      </div>
+      <div class="actions">
+        <button type="button" id="btn-interact" data-act="interact">互動</button>
+        <button type="button" id="btn-attack" data-act="attack">攻擊</button>
+        <button type="button" id="btn-jump" data-act="jump">跳</button>
+      </div>
+    </div>
+  </div>
+  <script src="js/game.js"></script>
+</body>
+</html>
