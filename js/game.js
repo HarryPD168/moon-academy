@@ -272,7 +272,7 @@
     frameW: 252, frameH: 200,
     anchorX: 116, anchorY: 184,
     charH: 148.5, cols: 8,
-    counts: { idle: 8, walk: 16, jump: 8, attack: 20, dash: 4 }
+    counts: { idle: 8, walk: 24, jump: 8, attack: 20, dash: 4 }
   };
   const ATK_DUR = 1.10;
   const ATK_CD = 1.28;
@@ -687,7 +687,7 @@
     else player.anim = "idle";
     const len = (images.player[player.anim] || []).filter(Boolean).length || 1;
     // One frame at a time, even holds. Do not crossfade.
-    const spd = player.anim === "walk" ? 16 : player.anim === "idle" ? 8 : 24;
+    const spd = player.anim === "walk" ? 24 : player.anim === "idle" ? 8 : 24;
     let frameI;
     if (player.anim === "jump") {
       const t = (player.vy + 960) / 1760;
