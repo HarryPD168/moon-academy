@@ -269,17 +269,17 @@
   }
 
   const SPRITE = {
-    frameW: 230, frameH: 154,
-    anchorX: 92.4, anchorY: 146,
-    charH: 140, cols: 10,
-    counts: { idle: 10, walk: 28, jump: 21, attack: 30, dash: 10 }
+    frameW: 288, frameH: 154,
+    anchorX: 100.16, anchorY: 146,
+    charH: 140, cols: 8,
+    counts: { idle: 8, walk: 16, jump: 8, attack: 20, dash: 4 }
   };
-  const ATK_DUR = 0.62;
-  const ATK_CD = 0.82;
-  const ATK_HIT_START = 10 / 30;
-  const ATK_HIT_END = 20 / 30;
+  const ATK_DUR = 1.10;
+  const ATK_CD = 1.28;
+  const ATK_HIT_START = 4 / 20;
+  const ATK_HIT_END = 12 / 20;
   let mapData = null;
-  const images = { player: { idle: [], walk: [], jump: [], attack: [], dash: [] }, front: null, title: null, bg: {} };
+  const images = { player: { idle: [], walk: [], jump: [], attack: [], dash: [] }, front: null, title: null, bg: {}, enemies: {} };
   let state = "boot";
   let world = null;
 
@@ -307,6 +307,9 @@
     for (const name of ["idle", "walk", "jump", "attack", "dash"]) jobs.push(loadSheet(name));
     jobs.push(loadImage("assets/player/front.webp").then((im) => { if (im) images.front = im; }));
     jobs.push(loadImage("assets/player/title.webp").then((im) => { if (im) images.title = im; }));
+    for (const name of ["gargoyle", "armor", "robe", "bell"]) {
+      jobs.push(loadImage(`assets/enemies/${name}.webp`).then((im) => { if (im) images.enemies[name] = im; }));
+    }
     for (const room of mapData.rooms) {
       if (room.background) jobs.push(loadImage(room.background).then((im) => { if (im) images.bg[room.background] = im; }));
       if (room.parallax) jobs.push(loadImage(room.parallax).then((im) => { if (im) images.bg[room.parallax] = im; }));
@@ -365,10 +368,10 @@
 
   function makeEnemy(def, room) {
     const specs = {
-      wisp: { w: 30, h: 34, hp: 2, dmg: 1, color: "#3d4a44", name: "霧藤靈" },
-      imp: { w: 32, h: 40, hp: 3, dmg: 1, color: "#3a2c26", name: "書頁使魔" },
-      elite: { w: 42, h: 56, hp: 6, dmg: 1, color: "#2c2a30", name: "鎧面館員" },
-      boss: { w: 76, h: 92, hp: 12, dmg: 1, color: "#2a2624", name: "夜鐘守護者" }
+      wisp: { w: 70, h: 100, hp: 2, dmg: 1, color: "#3d4a44", name: "學袍殘影", sprite: "robe" },
+      imp: { w: 90, h: 84, hp: 3, dmg: 1, color: "#3a2c26", name: "碎石石像鬼", sprite: "gargoyle" },
+      elite: { w: 72, h: 108, hp: 6, dmg: 1, color: "#2c2a30", name: "空洞鎧甲", sprite: "armor" },
+      boss: { w: 92, h: 132, hp: 12, dmg: 1, color: "#2a2624", name: "鐘樓鈴魂", sprite: "bell" }
     };
     const s = specs[def.type];
     if (!s) return null;
@@ -378,7 +381,7 @@
       x: def.x - s.w / 2, y: feet - s.h, w: s.w, h: s.h,
       vx: def.type === "boss" ? 70 : (Math.random() < 0.5 ? -50 : 50),
       vy: 0, hp: def.hp ?? s.hp, maxHp: def.hp ?? s.hp, dmg: s.dmg,
-      color: s.color, alive: true, hurt: 0, cd: 0, phase: 1, t: 0,
+      color: s.color, sprite: s.sprite, alive: true, hurt: 0, cd: 0, phase: 1, t: 0,
       shots: []
     };
   }
@@ -683,11 +686,11 @@
     else if (Math.abs(player.vx) > 30) player.anim = "walk";
     else player.anim = "idle";
     const len = (images.player[player.anim] || []).filter(Boolean).length || 1;
-    const spd = player.anim === "walk" ? 18 : player.anim === "idle" ? 8 : 24;
+    const spd = player.anim === "walk" ? 16 : player.anim === "idle" ? 6 : 24;
     player.frame = Math.floor(player.animT * spd) % len;
     if (player.anim === "jump") {
       const t = (player.vy + 960) / 1760;
-      player.frame = Math.max(0, Math.min(len - 1, Math.floor(t * len)));
+      player.frame = Math.max(1, Math.min(len - 1, 1 + Math.floor(t * (len - 1))));
     }
     if (player.anim === "attack") player.frame = Math.min(len - 1, Math.floor((ATK_DUR - player.attacking) / ATK_DUR * len));
     if (player.anim === "dash") player.frame = Math.min(len - 1, Math.floor((0.16 - player.dashing) / 0.16 * len));
@@ -806,6 +809,20 @@
   }
 
   function drawCreature(e, x, y, w, h, flash) {
+    const spr = e.sprite && images.enemies[e.sprite];
+    if (spr) {
+      const scale = h / spr.height;
+      const dw = spr.width * scale, dh = h;
+      const px = x + w / 2, py = y + h;
+      ctx.save();
+      ctx.translate(px, py);
+      if (e.vx < 0) ctx.scale(-1, 1);
+      if (flash) ctx.filter = "brightness(1.8) contrast(1.15)";
+      ctx.drawImage(spr, -dw / 2, -dh, dw, dh);
+      ctx.filter = "none";
+      ctx.restore();
+      return;
+    }
     const body = flash ? "#f3ead4" : e.color;
     const eye = flash ? "#6a1010" : "#c8b48a";
     const ink = flash ? "#5a2018" : "#0c0a10";
@@ -878,7 +895,12 @@
     const drawCover = (img, factor) => {
       const x = world.cam.x * factor;
       const y = world.cam.y * Math.min(1, factor + 0.4);
-      ctx.drawImage(img, 0, 0, img.width, img.height, x, y, room.width, room.height);
+      const dw = room.width, dh = room.height;
+      const scale = Math.max(dw / img.width, dh / img.height);
+      const sw = dw / scale, sh = dh / scale;
+      const sx = (img.width - sw) / 2;
+      const sy = 0;
+      ctx.drawImage(img, sx, sy, sw, sh, x, y, dw, dh);
     };
     if (far) {
       ctx.globalAlpha = 1;
@@ -901,10 +923,7 @@
     ctx.save();
     ctx.translate(-(world.cam.x + (world.cam.sx || 0)), -(world.cam.y + (world.cam.sy || 0)));
     drawBackground(room);
-    // dark medieval grade over painted rooms (does not edit art files)
-    ctx.fillStyle = "rgba(8, 6, 14, 0.28)";
-    ctx.fillRect(world.cam.x, world.cam.y, VIEW_W, VIEW_H);
-    ctx.fillStyle = "rgba(40, 18, 16, 0.08)";
+    ctx.fillStyle = "rgba(6, 4, 12, 0.10)";
     ctx.fillRect(world.cam.x, world.cam.y, VIEW_W, VIEW_H);
 
     // solids — thin walkable ledges so background art stays visible
@@ -1063,9 +1082,9 @@
     ctx.restore();
 
     // vignette in screen space
-    const vg = ctx.createRadialGradient(VIEW_W / 2, VIEW_H * 0.55, VIEW_H * 0.2, VIEW_W / 2, VIEW_H * 0.55, VIEW_H * 0.78);
+    const vg = ctx.createRadialGradient(VIEW_W / 2, VIEW_H * 0.55, VIEW_H * 0.22, VIEW_W / 2, VIEW_H * 0.55, VIEW_H * 0.82);
     vg.addColorStop(0, "rgba(0,0,0,0)");
-    vg.addColorStop(1, "rgba(0,0,0,0.42)");
+    vg.addColorStop(1, "rgba(0,0,0,0.30)");
     ctx.fillStyle = vg;
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   }
@@ -1197,7 +1216,7 @@
   function drawTitle() {
     ctx.fillStyle = "#14122a";
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-    const bg = images.bg["art/bg-courtyard-far.jpg"] || images.bg["art/bg-courtyard.jpg"];
+    const bg = images.bg["art/bg-courtyard-far-dark.jpg"] || images.bg["art/bg-courtyard-dark.jpg"];
     if (bg) {
       ctx.globalAlpha = 0.7;
       ctx.drawImage(bg, 0, 0, VIEW_W, VIEW_H);
