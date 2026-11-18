@@ -108,6 +108,7 @@
   window.addEventListener("contextmenu", (e) => e.preventDefault());
 
   const audio = { ok: false, muted: false, ctx: null };
+  const bgm = { started: false, master: null, timer: null };
   function ensureAudio() {
     if (audio.ctx) return;
     try { audio.ctx = new AudioContext(); audio.ok = true; } catch (_) {}
@@ -205,19 +206,78 @@
     djump: () => beep(560, 0.08, "square", 0.04),
     dash: () => { beep(240, 0.12, "sawtooth", 0.04); beep(480, 0.08, "square", 0.03); },
     atk: () => beep(260, 0.04, "sine", 0.03),
-    hit: () => { duk(0, 0.16); duk(0.07, 0.1); },
+    hit: () => { duk(0, 0.2); duk(0.065, 0.13); },
     hurt: () => beep(140, 0.2, "sawtooth", 0.05),
     pickup: () => { beep(520, 0.12, "square", 0.05); setTimeout(() => beep(780, 0.18, "square", 0.05), 80); },
     bench: () => beep(360, 0.15, "triangle", 0.04),
-    win: () => { beep(523, 0.15); setTimeout(() => beep(659, 0.15), 120); setTimeout(() => beep(784, 0.3), 240); }
+    win: () => { beep(523, 0.15, "triangle", 0.05); setTimeout(() => beep(659, 0.15, "triangle", 0.05), 120); setTimeout(() => beep(784, 0.3, "sine", 0.05), 240); }
   };
+  function setMuted(on) {
+    audio.muted = on;
+    if (bgm.master) {
+      const ctx = audio.ctx;
+      if (ctx) bgm.master.gain.setTargetAtTime(on ? 0 : 0.08, ctx.currentTime, 0.05);
+    }
+  }
+  function startBgm() {
+    ensureAudio();
+    if (!audio.ok || !audio.ctx || bgm.started) return;
+    if (audio.ctx.state === "suspended") audio.ctx.resume();
+    const ctx = audio.ctx;
+    const master = ctx.createGain();
+    master.gain.value = audio.muted ? 0 : 0.08;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 720;
+    lp.Q.value = 0.4;
+    master.connect(lp);
+    lp.connect(ctx.destination);
+    bgm.master = master;
+    bgm.started = true;
+    const drone = (freq, type, gain) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = type;
+      o.frequency.value = freq;
+      g.gain.value = gain;
+      o.connect(g);
+      g.connect(master);
+      o.start();
+    };
+    // D minor drones — dark, low, not bright
+    drone(73.42, "sine", 0.45);
+    drone(110, "triangle", 0.16);
+    drone(146.83, "sine", 0.08);
+    const bell = () => {
+      if (!audio.ctx || audio.muted) return;
+      const t0 = audio.ctx.currentTime;
+      const notes = [146.83, 174.61, 220, 130.81, 98];
+      const f = notes[Math.floor(Math.random() * notes.length)];
+      const o = audio.ctx.createOscillator();
+      const g = audio.ctx.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(f, t0);
+      o.frequency.exponentialRampToValueAtTime(f * 0.97, t0 + 1.6);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.11, t0 + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.8);
+      o.connect(g); g.connect(master);
+      o.start(t0); o.stop(t0 + 1.85);
+    };
+    bell();
+    bgm.timer = setInterval(bell, 2600);
+  }
 
   const SPRITE = {
-    frameW: 232, frameH: 152,
-    anchorX: 112.92, anchorY: 144.67,
+    frameW: 230, frameH: 154,
+    anchorX: 92.4, anchorY: 146,
     charH: 140, cols: 10,
-    counts: { idle: 30, walk: 30, jump: 30, attack: 30, dash: 30 }
+    counts: { idle: 10, walk: 28, jump: 21, attack: 30, dash: 10 }
   };
+  const ATK_DUR = 0.62;
+  const ATK_CD = 0.82;
+  const ATK_HIT_START = 10 / 30;
+  const ATK_HIT_END = 20 / 30;
   let mapData = null;
   const images = { player: { idle: [], walk: [], jump: [], attack: [], dash: [] }, front: null, title: null, bg: {} };
   let state = "boot";
@@ -305,10 +365,10 @@
 
   function makeEnemy(def, room) {
     const specs = {
-      wisp: { w: 28, h: 28, hp: 2, dmg: 1, color: "#9ad8c0", name: "霧藤靈" },
-      imp: { w: 30, h: 36, hp: 3, dmg: 1, color: "#d4a06a", name: "書頁使魔" },
-      elite: { w: 40, h: 52, hp: 6, dmg: 1, color: "#c07080", name: "鎧面館員" },
-      boss: { w: 72, h: 88, hp: 12, dmg: 1, color: "#c9b36a", name: "夜鐘守護者" }
+      wisp: { w: 30, h: 34, hp: 2, dmg: 1, color: "#3d4a44", name: "霧藤靈" },
+      imp: { w: 32, h: 40, hp: 3, dmg: 1, color: "#3a2c26", name: "書頁使魔" },
+      elite: { w: 42, h: 56, hp: 6, dmg: 1, color: "#2c2a30", name: "鎧面館員" },
+      boss: { w: 76, h: 92, hp: 12, dmg: 1, color: "#2a2624", name: "夜鐘守護者" }
     };
     const s = specs[def.type];
     if (!s) return null;
@@ -352,7 +412,8 @@
       rooms,
       roomId: save.checkpoint.room,
       save,
-      cam: { x: 0, y: 0 },
+      cam: { x: 0, y: 0, sx: 0, sy: 0 },
+      hitstop: 0, shakeT: 0, shakeMag: 0,
       fade: 0, fadeDir: 0, pending: null,
       banner: null, bannerT: 0,
       hint: "", hintT: 0,
@@ -481,7 +542,9 @@
 
   function attackBox() {
     if (player.attacking <= 0) return null;
-    const reach = 84;
+    const p = (ATK_DUR - player.attacking) / ATK_DUR;
+    if (p < ATK_HIT_START || p >= ATK_HIT_END) return null;
+    const reach = 92;
     const x = player.facing > 0 ? player.x + player.w : player.x - reach;
     return rect(x, player.y + 8, reach, player.h - 10);
   }
@@ -562,8 +625,8 @@
     }
 
     if (input.attackPressed && player.attackCd <= 0 && player.dashing <= 0) {
-      player.attacking = 0.28;
-      player.attackCd = 0.40;
+      player.attacking = ATK_DUR;
+      player.attackCd = ATK_CD;
       player.animT = 0;
       sfx.atk();
     }
@@ -620,13 +683,13 @@
     else if (Math.abs(player.vx) > 30) player.anim = "walk";
     else player.anim = "idle";
     const len = (images.player[player.anim] || []).filter(Boolean).length || 1;
-    const spd = player.anim === "walk" ? 30 : player.anim === "idle" ? 12 : 30;
+    const spd = player.anim === "walk" ? 18 : player.anim === "idle" ? 8 : 24;
     player.frame = Math.floor(player.animT * spd) % len;
     if (player.anim === "jump") {
       const t = (player.vy + 960) / 1760;
       player.frame = Math.max(0, Math.min(len - 1, Math.floor(t * len)));
     }
-    if (player.anim === "attack") player.frame = Math.min(len - 1, Math.floor((0.28 - player.attacking) / 0.28 * len));
+    if (player.anim === "attack") player.frame = Math.min(len - 1, Math.floor((ATK_DUR - player.attacking) / ATK_DUR * len));
     if (player.anim === "dash") player.frame = Math.min(len - 1, Math.floor((0.16 - player.dashing) / 0.16 * len));
   }
 
@@ -692,10 +755,23 @@
 
       if (ab && aabb(ab, e) && e.hurt <= 0) {
         e.hp -= 1;
-        e.hurt = 0.25;
-        e.vx += player.facing * 80;
+        e.hurt = 0.28;
+        e.vx += player.facing * 180;
+        e.vy = Math.min(e.vy, -140);
         sfx.hit();
-        fx.push({ t: 0.2, x: e.x, y: e.y, kind: "hit" });
+        world.hitstop = Math.max(world.hitstop, e.type === "boss" ? 0.1 : 0.07);
+        world.shakeT = 0.2;
+        world.shakeMag = e.type === "boss" ? 10 : 7;
+        for (let i = 0; i < 6; i++) {
+          fx.push({
+            t: 0.18 + Math.random() * 0.1,
+            x: e.x + e.w * Math.random(),
+            y: e.y + e.h * (0.2 + Math.random() * 0.6),
+            vx: player.facing * (80 + Math.random() * 140),
+            vy: -40 - Math.random() * 120,
+            kind: "hit"
+          });
+        }
         if (e.hp <= 0) {
           e.alive = false;
           if (e.type === "boss") {
@@ -719,6 +795,66 @@
     ty = Math.max(0, Math.min(Math.max(0, room.height - VIEW_H), ty));
     world.cam.x += (tx - world.cam.x) * 0.14;
     world.cam.y += (ty - world.cam.y) * 0.14;
+    if (world.shakeT > 0) {
+      const m = world.shakeMag * (world.shakeT / 0.2);
+      world.cam.sx = (Math.random() * 2 - 1) * m;
+      world.cam.sy = (Math.random() * 2 - 1) * m * 0.6;
+    } else {
+      world.cam.sx = 0;
+      world.cam.sy = 0;
+    }
+  }
+
+  function drawCreature(e, x, y, w, h, flash) {
+    const body = flash ? "#f3ead4" : e.color;
+    const eye = flash ? "#6a1010" : "#c8b48a";
+    const ink = flash ? "#5a2018" : "#0c0a10";
+    ctx.fillStyle = body;
+    if (e.type === "wisp") {
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.ellipse(x + w / 2, y + h / 2, w * 0.42, h * 0.48, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath();
+      ctx.ellipse(x + w / 2, y + h / 2 + 10, w * 0.28, h * 0.38, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = eye;
+      ctx.beginPath(); ctx.arc(x + w * 0.35, y + h * 0.42, 2.2, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + w * 0.65, y + h * 0.42, 2.2, 0, Math.PI * 2); ctx.fill();
+      return;
+    }
+    // hooded / armored body
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.5, y + 2);
+    ctx.lineTo(x + w - 2, y + h * 0.28);
+    ctx.lineTo(x + w * 0.86, y + h);
+    ctx.lineTo(x + w * 0.14, y + h);
+    ctx.lineTo(x + 2, y + h * 0.28);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    if (e.type === "elite" || e.type === "boss") {
+      ctx.fillStyle = flash ? "#e8dcc0" : "#4a4550";
+      ctx.fillRect(x + w * 0.18, y + 4, w * 0.64, h * 0.22);
+      ctx.fillStyle = ink;
+      ctx.fillRect(x + w * 0.22, y + h * 0.12, w * 0.56, 4);
+    }
+    if (e.type === "boss") {
+      ctx.fillStyle = flash ? "#f0e0b0" : "#6a5a28";
+      ctx.beginPath();
+      ctx.moveTo(x + 8, y + 8);
+      ctx.lineTo(x + w * 0.5, y - 14);
+      ctx.lineTo(x + w - 8, y + 8);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.fillStyle = eye;
+    ctx.fillRect(x + w * 0.28, y + h * 0.32, 5, 3);
+    ctx.fillRect(x + w * 0.62, y + h * 0.32, 5, 3);
   }
 
   function drawRoundRect(x, y, w, h, r, fill, stroke) {
@@ -763,8 +899,13 @@
   function drawWorld() {
     const room = currentRoom();
     ctx.save();
-    ctx.translate(-world.cam.x, -world.cam.y);
+    ctx.translate(-(world.cam.x + (world.cam.sx || 0)), -(world.cam.y + (world.cam.sy || 0)));
     drawBackground(room);
+    // dark medieval grade over painted rooms (does not edit art files)
+    ctx.fillStyle = "rgba(8, 6, 14, 0.28)";
+    ctx.fillRect(world.cam.x, world.cam.y, VIEW_W, VIEW_H);
+    ctx.fillStyle = "rgba(40, 18, 16, 0.08)";
+    ctx.fillRect(world.cam.x, world.cam.y, VIEW_W, VIEW_H);
 
     // solids — thin walkable ledges so background art stays visible
     for (const s of room.solids) {
@@ -783,7 +924,7 @@
       if (isFloor) {
         ctx.fillStyle = "rgba(12, 10, 24, 0.35)";
         ctx.fillRect(s.x, s.y + 8, s.w, s.h - 8);
-        ctx.fillStyle = "rgba(236, 228, 200, 0.9)";
+        ctx.fillStyle = "rgba(168, 150, 120, 0.9)";
         ctx.fillRect(s.x, s.y, s.w, 5);
         ctx.fillStyle = "rgba(70, 66, 96, 0.55)";
         ctx.fillRect(s.x, s.y + 5, s.w, 8);
@@ -791,13 +932,13 @@
       }
       // floating / mid platforms: stone ledge
       const grd = ctx.createLinearGradient(0, s.y, 0, s.y + Math.min(s.h, 36));
-      grd.addColorStop(0, "rgba(236, 228, 200, 0.95)");
+      grd.addColorStop(0, "rgba(150, 132, 108, 0.95)");
       grd.addColorStop(0.2, "rgba(120, 114, 150, 0.92)");
       grd.addColorStop(1, "rgba(46, 42, 70, 0.88)");
       ctx.fillStyle = grd;
       const visH = Math.min(s.h, 28);
       ctx.fillRect(s.x, s.y, s.w, visH);
-      ctx.fillStyle = "rgba(255, 245, 210, 0.8)";
+      ctx.fillStyle = "rgba(190, 170, 130, 0.7)";
       ctx.fillRect(s.x, s.y, s.w, 3);
       ctx.fillStyle = "rgba(10, 8, 20, 0.35)";
       ctx.fillRect(s.x + 2, s.y + visH, s.w - 4, 4);
@@ -868,27 +1009,22 @@
         continue;
       }
       ctx.save();
-      if (e.hurt > 0) ctx.globalAlpha = 0.55;
       const x = e.x, y = e.y, w = e.w, h = e.h;
-      ctx.fillStyle = e.color;
-      drawRoundRect(x, y, w, h, 8, e.color, "#1a1420");
-      ctx.fillStyle = "#1a1420";
-      ctx.fillRect(x + w * 0.25, y + h * 0.3, 5, 5);
-      ctx.fillRect(x + w * 0.62, y + h * 0.3, 5, 5);
+      const flash = e.hurt > 0 && Math.floor(e.hurt * 24) % 2 === 0;
+      drawCreature(e, x, y, w, h, flash);
       if (e.type === "boss") {
-        ctx.fillStyle = "#e8dcc0";
-        ctx.fillRect(x + 10, y - 16, w - 20, 18);
-        ctx.fillStyle = "#d8a03a";
-        ctx.beginPath(); ctx.arc(x + w / 2, y - 16, 10, 0, Math.PI * 2); ctx.fill();
-        // hp bar
-        ctx.fillStyle = "rgba(0,0,0,0.5)";
-        ctx.fillRect(x, y - 30, w, 6);
-        ctx.fillStyle = "#e07070";
-        ctx.fillRect(x, y - 30, w * (e.hp / e.maxHp), 6);
+        ctx.fillStyle = "rgba(0,0,0,0.65)";
+        ctx.fillRect(x, y - 22, w, 7);
+        ctx.fillStyle = "#8a2020";
+        ctx.fillRect(x, y - 22, w * (e.hp / e.maxHp), 7);
+        ctx.strokeStyle = "rgba(200, 170, 110, 0.5)";
+        ctx.strokeRect(x, y - 22, w, 7);
       }
       for (const s of e.shots || []) {
-        ctx.fillStyle = "#e2c56c";
-        ctx.beginPath(); ctx.arc(s.x, s.y, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = flash ? "#fff0d0" : "#7a5a22";
+        ctx.beginPath(); ctx.arc(s.x, s.y, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(255, 210, 120, 0.55)";
+        ctx.beginPath(); ctx.arc(s.x, s.y, 9, 0, Math.PI * 2); ctx.stroke();
       }
       ctx.restore();
     }
@@ -898,17 +1034,40 @@
 
     const ab = attackBox();
     if (ab) {
-      ctx.fillStyle = "rgba(200, 230, 255, 0.28)";
-      ctx.fillRect(ab.x, ab.y, ab.w, ab.h);
+      const midY = ab.y + ab.h * 0.45;
+      const from = player.facing > 0 ? ab.x : ab.x + ab.w;
+      const to = player.facing > 0 ? ab.x + ab.w : ab.x;
+      const g = ctx.createLinearGradient(from, midY, to, midY);
+      g.addColorStop(0, "rgba(255, 244, 210, 0)");
+      g.addColorStop(0.55, "rgba(255, 236, 190, 0.55)");
+      g.addColorStop(1, "rgba(255, 252, 230, 0.9)");
+      ctx.strokeStyle = g;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(from, midY + 6);
+      ctx.lineTo(to, midY - 2);
+      ctx.stroke();
     }
 
     for (const f of fx) {
-      ctx.globalAlpha = Math.max(0, f.t * 4);
-      ctx.fillStyle = "#e8f0ff";
-      ctx.fillRect(f.x, f.y, 20, 40);
+      ctx.globalAlpha = Math.max(0, Math.min(1, f.t * 5));
+      if (f.kind === "hit") {
+        ctx.fillStyle = "#e8dcb0";
+        ctx.fillRect(f.x, f.y, 3, 8);
+      } else {
+        ctx.fillStyle = "rgba(200, 210, 230, 0.7)";
+        ctx.fillRect(f.x, f.y, 16, 28);
+      }
       ctx.globalAlpha = 1;
     }
     ctx.restore();
+
+    // vignette in screen space
+    const vg = ctx.createRadialGradient(VIEW_W / 2, VIEW_H * 0.55, VIEW_H * 0.2, VIEW_W / 2, VIEW_H * 0.55, VIEW_H * 0.78);
+    vg.addColorStop(0, "rgba(0,0,0,0)");
+    vg.addColorStop(1, "rgba(0,0,0,0.42)");
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   }
 
   function drawPlayer() {
@@ -1087,24 +1246,34 @@
   }
 
   function tick(dt) {
-    if (input.mutePressed) { audio.muted = !audio.muted; input.mutePressed = false; }
+    if (input.mutePressed) { setMuted(!audio.muted); input.mutePressed = false; }
     if (state === "playing") {
       if (input.pausePressed) { state = "paused"; input.pausePressed = false; }
       if (input.helpPressed) { state = "help"; input.helpPressed = false; }
       world.time += dt;
       if (world.hintT > 0) world.hintT -= dt;
+      if (world.shakeT > 0) world.shakeT = Math.max(0, world.shakeT - dt);
+      let adt = dt;
+      if (world.hitstop > 0) {
+        world.hitstop -= dt;
+        adt = 0;
+      }
       if (world.fadeDir !== 0) {
         world.fade += world.fadeDir * dt * 4;
         if (world.fade >= 1) { world.fade = 1; applyEnter(); world.fadeDir = -1; }
         if (world.fade <= 0) { world.fade = 0; world.fadeDir = 0; }
       } else {
-        updatePlayer(dt);
-        updateEnemies(dt);
+        updatePlayer(adt);
+        updateEnemies(adt);
         // teases
         maybeTease();
       }
       updateCamera();
-      for (const f of fx) f.t -= dt;
+      for (const f of fx) {
+        f.t -= dt;
+        if (f.vx) f.x += f.vx * dt;
+        if (f.vy) { f.y += f.vy * dt; f.vy += 400 * dt; }
+      }
       for (let i = fx.length - 1; i >= 0; i--) if (fx[i].t <= 0) fx.splice(i, 1);
     } else if (state === "title") {
       if (input.confirmPressed || input.attackPressed || input.jumpPressed) startGame(false);
@@ -1191,6 +1360,7 @@
   function startGame(fresh) {
     ensureAudio();
     if (audio.ctx && audio.ctx.state === "suspended") audio.ctx.resume();
+    startBgm();
     let save = defaultSave();
     if (!fresh) {
       try {
