@@ -1,0 +1,13 @@
+{
+  "name": "月下學園",
+  "short_name": "月下學園",
+  "description": "2D 類銀河惡魔城動作冒險・開頭試玩版",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#14122a",
+  "theme_color": "#14122a",
+  "icons": [
+    { "src": "assets/player/front.png", "sizes": "153x192", "type": "image/png" }
+  ]
+}
