@@ -897,23 +897,40 @@
     ctx.fillRect(world.cam.x, world.cam.y, VIEW_W, VIEW_H);
     const far = room.parallax && images.bg[room.parallax];
     const near = room.background && images.bg[room.background];
-    const drawCover = (img, factor) => {
-      const x = world.cam.x * factor;
-      const y = world.cam.y * Math.min(1, factor + 0.4);
-      const dw = room.width, dh = room.height;
-      const scale = Math.max(dw / img.width, dh / img.height);
-      const sw = dw / scale, sh = dh / scale;
-      const sx = (img.width - sw) / 2;
-      const sy = 0;
-      ctx.drawImage(img, sx, sy, sw, sh, x, y, dw, dh);
+    // Full painting, no vertical crop, no horizontal stretch.
+    // Height maps to the room; a 1280-wide piece stays 1280, a future
+    // room-width painting locks 1:1 with rooms.json.
+    const drawFitted = (img, parX) => {
+      const scale = room.height / img.height;
+      const dw = img.width * scale;
+      const dh = room.height;
+      const x = world.cam.x * parX;
+      const y = 0;
+      if (dw < room.width - 0.5) {
+        ctx.drawImage(img, 0, 0, img.width, img.height, x, y, dw, dh);
+        const pal0 = (room.palette && room.palette[0]) || "#14122a";
+        ctx.fillStyle = pal0;
+        ctx.fillRect(x + dw, y, room.width - dw, dh);
+        const fade = ctx.createLinearGradient(x + dw - 36, 0, x + dw + 64, 0);
+        fade.addColorStop(0, "rgba(0,0,0,0)");
+        fade.addColorStop(1, pal0);
+        ctx.fillStyle = fade;
+        ctx.fillRect(x + dw - 36, y, 100, dh);
+      } else if (dw > room.width + 0.5) {
+        const sw = img.width * (room.width / dw);
+        const sx = (img.width - sw) / 2;
+        ctx.drawImage(img, sx, 0, sw, img.height, x, y, room.width, dh);
+      } else {
+        ctx.drawImage(img, 0, 0, img.width, img.height, x, y, dw, dh);
+      }
     };
     if (far) {
       ctx.globalAlpha = 1;
-      drawCover(far, 0.35);
+      drawFitted(far, 0.25);
     }
     if (near) {
       ctx.globalAlpha = 1;
-      drawCover(near, 0.08);
+      drawFitted(near, 0);
     } else {
       // procedural fallback
       ctx.fillStyle = pal[1] || "#334";
@@ -966,6 +983,39 @@
       ctx.fillRect(s.x, s.y, s.w, 3);
       ctx.fillStyle = "rgba(10, 8, 20, 0.35)";
       ctx.fillRect(s.x + 2, s.y + visH, s.w - 4, 4);
+    }
+
+    // pit mouths — mark the real drop so it is not an invisible hole
+    for (const pit of room.pits || []) {
+      const x = pit.x, y = pit.y, w = pit.w, h = pit.h;
+      const well = ctx.createLinearGradient(x, y, x, y + h + 48);
+      well.addColorStop(0, "rgba(8, 6, 12, 0.2)");
+      well.addColorStop(0.1, "rgba(4, 2, 8, 0.94)");
+      well.addColorStop(1, "rgba(0, 0, 0, 1)");
+      ctx.fillStyle = well;
+      ctx.fillRect(x, y, w, h + 48);
+      const left = ctx.createLinearGradient(x, y, x + 22, y);
+      left.addColorStop(0, "rgba(86, 74, 58, 0.9)");
+      left.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = left;
+      ctx.fillRect(x, y, 22, h);
+      const right = ctx.createLinearGradient(x + w, y, x + w - 22, y);
+      right.addColorStop(0, "rgba(86, 74, 58, 0.9)");
+      right.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = right;
+      ctx.fillRect(x + w - 22, y, 22, h);
+      ctx.fillStyle = "rgba(196, 176, 138, 0.96)";
+      ctx.fillRect(x - 10, y - 8, w + 20, 8);
+      ctx.fillStyle = "rgba(36, 28, 20, 0.85)";
+      ctx.fillRect(x - 10, y, w + 20, 4);
+      ctx.fillStyle = "rgba(10, 8, 12, 0.95)";
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + w, y);
+      ctx.lineTo(x + w - 12, y + 16);
+      ctx.lineTo(x + 12, y + 16);
+      ctx.closePath();
+      ctx.fill();
     }
 
     // locked gap shimmer
