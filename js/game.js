@@ -167,23 +167,57 @@
     src.connect(filter); filter.connect(g); g.connect(ctx.destination);
     src.start(t); src.stop(t + dur);
   }
+  function duk(when, gain) {
+    if (audio.muted) return;
+    ensureAudio();
+    if (!audio.ok || !audio.ctx) return;
+    if (audio.ctx.state === "suspended") audio.ctx.resume();
+    const ctx = audio.ctx;
+    const t = ctx.currentTime + (when || 0);
+    const vol = gain || 0.14;
+    const o = ctx.createOscillator();
+    const og = ctx.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(130, t);
+    o.frequency.exponentialRampToValueAtTime(52, t + 0.08);
+    og.gain.setValueAtTime(vol, t);
+    og.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+    o.connect(og); og.connect(ctx.destination);
+    o.start(t); o.stop(t + 0.1);
+    const len = Math.max(1, Math.floor(ctx.sampleRate * 0.04));
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 620;
+    filter.Q.value = 0.5;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(vol * 0.65, t);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
+    src.connect(filter); filter.connect(ng); ng.connect(ctx.destination);
+    src.start(t); src.stop(t + 0.045);
+  }
   const sfx = {
     jump: () => beep(420, 0.08, "square", 0.04),
     djump: () => beep(560, 0.08, "square", 0.04),
     dash: () => { beep(240, 0.12, "sawtooth", 0.04); beep(480, 0.08, "square", 0.03); },
-    atk: () => beep(720, 0.06, "square", 0.04),
-    hit: () => {
-      beepSlide(220, 70, 0.16, "sine", 0.12);
-      beep(90, 0.14, "triangle", 0.08);
-      beep(620, 0.035, "square", 0.06);
-      noiseBurst(0.09, 0.1, 1800);
-    },
+    atk: () => beep(260, 0.04, "sine", 0.03),
+    hit: () => { duk(0, 0.16); duk(0.07, 0.1); },
     hurt: () => beep(140, 0.2, "sawtooth", 0.05),
     pickup: () => { beep(520, 0.12, "square", 0.05); setTimeout(() => beep(780, 0.18, "square", 0.05), 80); },
     bench: () => beep(360, 0.15, "triangle", 0.04),
     win: () => { beep(523, 0.15); setTimeout(() => beep(659, 0.15), 120); setTimeout(() => beep(784, 0.3), 240); }
   };
 
+  const SPRITE = {
+    frameW: 232, frameH: 152,
+    anchorX: 112.92, anchorY: 144.67,
+    charH: 140, cols: 10,
+    counts: { idle: 30, walk: 30, jump: 30, attack: 30, dash: 30 }
+  };
   let mapData = null;
   const images = { player: { idle: [], walk: [], jump: [], attack: [], dash: [] }, front: null, title: null, bg: {} };
   let state = "boot";
@@ -201,14 +235,18 @@
     const res = await fetch("maps/rooms.json");
     mapData = await res.json();
     const jobs = [];
-    const addFrames = (name, n) => {
+    const loadSheet = (name) => loadImage(`assets/player/${name}_sheet.webp`).then((im) => {
+      if (!im) return;
+      const n = SPRITE.counts[name], cols = SPRITE.cols, fw = SPRITE.frameW, fh = SPRITE.frameH;
+      const frames = [];
       for (let i = 0; i < n; i++) {
-        jobs.push(loadImage(`assets/player/${name}_${i}.png`).then((im) => { if (im) images.player[name][i] = im; }));
+        frames.push({ img: im, sx: (i % cols) * fw, sy: Math.floor(i / cols) * fh, sw: fw, sh: fh });
       }
-    };
-    addFrames("idle", 4); addFrames("walk", 6); addFrames("jump", 3); addFrames("attack", 4); addFrames("dash", 3);
-    jobs.push(loadImage("assets/player/front.png").then((im) => images.front = im));
-    jobs.push(loadImage("assets/player/title.png").then((im) => images.title = im));
+      images.player[name] = frames;
+    });
+    for (const name of ["idle", "walk", "jump", "attack", "dash"]) jobs.push(loadSheet(name));
+    jobs.push(loadImage("assets/player/front.webp").then((im) => { if (im) images.front = im; }));
+    jobs.push(loadImage("assets/player/title.webp").then((im) => { if (im) images.title = im; }));
     for (const room of mapData.rooms) {
       if (room.background) jobs.push(loadImage(room.background).then((im) => { if (im) images.bg[room.background] = im; }));
       if (room.parallax) jobs.push(loadImage(room.parallax).then((im) => { if (im) images.bg[room.parallax] = im; }));
@@ -443,7 +481,7 @@
 
   function attackBox() {
     if (player.attacking <= 0) return null;
-    const reach = 52;
+    const reach = 84;
     const x = player.facing > 0 ? player.x + player.w : player.x - reach;
     return rect(x, player.y + 8, reach, player.h - 10);
   }
@@ -524,8 +562,8 @@
     }
 
     if (input.attackPressed && player.attackCd <= 0 && player.dashing <= 0) {
-      player.attacking = 0.22;
-      player.attackCd = 0.34;
+      player.attacking = 0.28;
+      player.attackCd = 0.40;
       player.animT = 0;
       sfx.atk();
     }
@@ -582,10 +620,13 @@
     else if (Math.abs(player.vx) > 30) player.anim = "walk";
     else player.anim = "idle";
     const len = (images.player[player.anim] || []).filter(Boolean).length || 1;
-    const spd = player.anim === "walk" ? 10 : player.anim === "idle" ? 6 : player.anim === "attack" ? 16 : 8;
+    const spd = player.anim === "walk" ? 30 : player.anim === "idle" ? 12 : 30;
     player.frame = Math.floor(player.animT * spd) % len;
-    if (player.anim === "jump") player.frame = player.vy < -120 ? 1 : player.vy > 80 ? 2 : 0;
-    if (player.anim === "attack") player.frame = Math.min(len - 1, Math.floor((0.22 - player.attacking) / 0.22 * len));
+    if (player.anim === "jump") {
+      const t = (player.vy + 960) / 1760;
+      player.frame = Math.max(0, Math.min(len - 1, Math.floor(t * len)));
+    }
+    if (player.anim === "attack") player.frame = Math.min(len - 1, Math.floor((0.28 - player.attacking) / 0.28 * len));
     if (player.anim === "dash") player.frame = Math.min(len - 1, Math.floor((0.16 - player.dashing) / 0.16 * len));
   }
 
@@ -657,10 +698,6 @@
         fx.push({ t: 0.2, x: e.x, y: e.y, kind: "hit" });
         if (e.hp <= 0) {
           e.alive = false;
-          if (e.type !== "boss") {
-            beep(880, 0.05, "square", 0.04);
-            beepSlide(440, 880, 0.12, "triangle", 0.04);
-          }
           if (e.type === "boss") {
             world.save.bossDown = true;
             persist();
@@ -877,25 +914,28 @@
   function drawPlayer() {
     if (player.invuln > 0 && Math.floor(player.invuln * 20) % 2 === 0) ctx.globalAlpha = 0.45;
     const frames = images.player[player.anim] || [];
-    const img = frames[player.frame] || frames[0] || images.front;
-    const drawH = 128;
-    const drawW = img ? img.width * (drawH / img.height) : 80;
-    const dx = player.x + player.w / 2 - drawW / 2;
-    const dy = player.y + player.h - drawH + 2;
-    if (img) {
-      ctx.save();
-      if (player.facing < 0) {
-        ctx.translate(dx + drawW, dy);
-        ctx.scale(-1, 1);
-        ctx.drawImage(img, 0, 0, drawW, drawH);
-      } else {
-        ctx.drawImage(img, dx, dy, drawW, drawH);
-      }
-      ctx.restore();
+    const fr = frames[player.frame] || frames[0];
+    const scale = 128 / SPRITE.charH;
+    const dw = SPRITE.frameW * scale;
+    const dh = SPRITE.frameH * scale;
+    const ax = SPRITE.anchorX * scale;
+    const ay = SPRITE.anchorY * scale;
+    const px = player.x + player.w / 2;
+    const py = player.y + player.h;
+    ctx.save();
+    if (fr && fr.img) {
+      ctx.translate(px, py);
+      if (player.facing < 0) ctx.scale(-1, 1);
+      ctx.drawImage(fr.img, fr.sx, fr.sy, fr.sw, fr.sh, -ax, -ay, dw, dh);
+    } else if (images.front) {
+      const img = images.front;
+      const h = 128, w = img.width * (h / img.height);
+      ctx.drawImage(img, px - w / 2, py - h, w, h);
     } else {
       ctx.fillStyle = "#f0d48a";
       ctx.fillRect(player.x, player.y, player.w, player.h);
     }
+    ctx.restore();
     ctx.globalAlpha = 1;
   }
 
