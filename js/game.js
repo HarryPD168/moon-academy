@@ -194,7 +194,7 @@
       const img = new Image();
       img.onload = () => resolve(img);
       img.onerror = () => resolve(null);
-      img.src = src;
+      img.src = (typeof ASSET_DATA !== "undefined" && ASSET_DATA[src]) || src;
     });
   }
   async function loadAll() {
