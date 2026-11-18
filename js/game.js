@@ -686,20 +686,20 @@
     else if (Math.abs(player.vx) > 30) player.anim = "walk";
     else player.anim = "idle";
     const len = (images.player[player.anim] || []).filter(Boolean).length || 1;
+    // One frame at a time, even holds. Do not crossfade.
     const spd = player.anim === "walk" ? 16 : player.anim === "idle" ? 8 : 24;
-    let frameF;
+    let frameI;
     if (player.anim === "jump") {
       const t = (player.vy + 960) / 1760;
-      frameF = Math.max(1, Math.min(len - 1, 1 + t * (len - 1)));
+      frameI = Math.round(Math.max(1, Math.min(len - 1, 1 + t * (len - 1))));
     } else if (player.anim === "attack") {
-      frameF = Math.min(len - 1 - 1e-6, (ATK_DUR - player.attacking) / ATK_DUR * len);
+      frameI = Math.min(len - 1, Math.floor((ATK_DUR - player.attacking) / ATK_DUR * len));
     } else if (player.anim === "dash") {
-      frameF = Math.min(len - 1 - 1e-6, (0.16 - player.dashing) / 0.16 * len);
+      frameI = Math.min(len - 1, Math.floor((0.16 - player.dashing) / 0.16 * len));
     } else {
-      frameF = (player.animT * spd) % len;
+      frameI = Math.floor(player.animT * spd) % len;
     }
-    player.frame = Math.floor(frameF) % len;
-    player.frameBlend = frameF - Math.floor(frameF);
+    player.frame = ((frameI % len) + len) % len;
   }
 
 
@@ -1148,9 +1148,6 @@
     const flick = (player.invuln > 0 && Math.floor(player.invuln * 20) % 2 === 0) ? 0.45 : 1;
     const frames = images.player[player.anim] || [];
     const fr = frames[player.frame] || frames[0];
-    const wrap = player.anim === "walk" || player.anim === "idle";
-    const next = (player.frame + 1 < frames.length) ? frames[player.frame + 1] : (wrap ? frames[0] : null);
-    const blend = Math.max(0, Math.min(1, player.frameBlend || 0));
     const scale = 128 / SPRITE.charH;
     const dw = SPRITE.frameW * scale;
     const dh = SPRITE.frameH * scale;
@@ -1162,17 +1159,8 @@
     if (fr && fr.img) {
       ctx.translate(px, py);
       if (player.facing < 0) ctx.scale(-1, 1);
-      const blit = (frame, alpha) => {
-        if (!frame || !frame.img || alpha < 0.02) return;
-        ctx.globalAlpha = flick * alpha;
-        ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh, -ax, -ay, dw, dh);
-      };
-      if (next && next.img && blend > 0.02) {
-        blit(fr, 1 - blend);
-        blit(next, blend);
-      } else {
-        blit(fr, 1);
-      }
+      ctx.globalAlpha = flick;
+      ctx.drawImage(fr.img, fr.sx, fr.sy, fr.sw, fr.sh, -ax, -ay, dw, dh);
       ctx.globalAlpha = 1;
     } else if (images.front) {
       const img = images.front;
