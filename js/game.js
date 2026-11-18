@@ -269,9 +269,9 @@
   }
 
   const SPRITE = {
-    frameW: 288, frameH: 154,
-    anchorX: 100.16, anchorY: 146,
-    charH: 140, cols: 8,
+    frameW: 252, frameH: 200,
+    anchorX: 116, anchorY: 184,
+    charH: 148.5, cols: 8,
     counts: { idle: 8, walk: 16, jump: 8, attack: 20, dash: 4 }
   };
   const ATK_DUR = 1.10;
@@ -686,17 +686,22 @@
     else if (Math.abs(player.vx) > 30) player.anim = "walk";
     else player.anim = "idle";
     const len = (images.player[player.anim] || []).filter(Boolean).length || 1;
-    const spd = player.anim === "walk" ? 16 : player.anim === "idle" ? 6 : 24;
-    player.frame = Math.floor(player.animT * spd) % len;
+    const spd = player.anim === "walk" ? 16 : player.anim === "idle" ? 8 : 24;
+    let frameF;
     if (player.anim === "jump") {
       const t = (player.vy + 960) / 1760;
-      player.frame = Math.max(1, Math.min(len - 1, 1 + Math.floor(t * (len - 1))));
+      frameF = Math.max(1, Math.min(len - 1, 1 + t * (len - 1)));
+    } else if (player.anim === "attack") {
+      frameF = Math.min(len - 1 - 1e-6, (ATK_DUR - player.attacking) / ATK_DUR * len);
+    } else if (player.anim === "dash") {
+      frameF = Math.min(len - 1 - 1e-6, (0.16 - player.dashing) / 0.16 * len);
+    } else {
+      frameF = (player.animT * spd) % len;
     }
-    if (player.anim === "attack") player.frame = Math.min(len - 1, Math.floor((ATK_DUR - player.attacking) / ATK_DUR * len));
-    if (player.anim === "dash") player.frame = Math.min(len - 1, Math.floor((0.16 - player.dashing) / 0.16 * len));
+    player.frame = Math.floor(frameF) % len;
+    player.frameBlend = frameF - Math.floor(frameF);
   }
 
-  // Cleaner jump: I'll patch the messy block by using a dedicated flag in update — I already have messy comments in jump. Let me rewrite updatePlayer jump more carefully when I review. I'll fix it immediately in a follow-up if needed. Actually I should fix the jump code before shipping. I'll write a cleaner function and I know I left messy duplicate assignments. I'll search-replace after writing.
 
   function updateEnemies(dt) {
     const room = currentRoom();
@@ -1090,9 +1095,12 @@
   }
 
   function drawPlayer() {
-    if (player.invuln > 0 && Math.floor(player.invuln * 20) % 2 === 0) ctx.globalAlpha = 0.45;
+    const flick = (player.invuln > 0 && Math.floor(player.invuln * 20) % 2 === 0) ? 0.45 : 1;
     const frames = images.player[player.anim] || [];
     const fr = frames[player.frame] || frames[0];
+    const wrap = player.anim === "walk" || player.anim === "idle";
+    const next = (player.frame + 1 < frames.length) ? frames[player.frame + 1] : (wrap ? frames[0] : null);
+    const blend = Math.max(0, Math.min(1, player.frameBlend || 0));
     const scale = 128 / SPRITE.charH;
     const dw = SPRITE.frameW * scale;
     const dh = SPRITE.frameH * scale;
@@ -1104,7 +1112,18 @@
     if (fr && fr.img) {
       ctx.translate(px, py);
       if (player.facing < 0) ctx.scale(-1, 1);
-      ctx.drawImage(fr.img, fr.sx, fr.sy, fr.sw, fr.sh, -ax, -ay, dw, dh);
+      const blit = (frame, alpha) => {
+        if (!frame || !frame.img || alpha < 0.02) return;
+        ctx.globalAlpha = flick * alpha;
+        ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh, -ax, -ay, dw, dh);
+      };
+      if (next && next.img && blend > 0.02) {
+        blit(fr, 1 - blend);
+        blit(next, blend);
+      } else {
+        blit(fr, 1);
+      }
+      ctx.globalAlpha = 1;
     } else if (images.front) {
       const img = images.front;
       const h = 128, w = img.width * (h / img.height);
