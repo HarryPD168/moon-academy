@@ -15,8 +15,8 @@
       "role": "hub",
       "width": 2400,
       "height": 720,
-      "background": "art/bg-courtyard.jpg",
-      "parallax": "art/bg-courtyard-far.jpg",
+      "background": "art/bg-courtyard-dark.jpg",
+      "parallax": "art/bg-courtyard-far-dark.jpg",
       "palette": ["#1b1a38", "#c9d2e8", "#6b7ea8", "#d8c07a"],
       "solids": [
         { "x": 0, "y": 592, "w": 1760, "h": 128 },
@@ -47,7 +47,7 @@
       "role": "first-ability",
       "width": 2200,
       "height": 720,
-      "background": "art/bg-west-cloister.jpg",
+      "background": "art/bg-west-cloister-dark.jpg",
       "palette": ["#143028", "#6ea08a", "#cfe8d6", "#d8c07a"],
       "solids": [
         { "x": 0, "y": 592, "w": 2200, "h": 128 },
@@ -69,7 +69,7 @@
       "role": "second-ability",
       "width": 2000,
       "height": 960,
-      "background": "art/bg-library.jpg",
+      "background": "art/bg-library-dark.jpg",
       "palette": ["#2a1a14", "#8a5a3a", "#e8c896", "#3a2a48"],
       "solids": [
         { "x": 0, "y": 832, "w": 2000, "h": 128 },
@@ -91,7 +91,7 @@
       "role": "landmark-finale",
       "width": 1280,
       "height": 1600,
-      "background": "art/bg-clocktower.jpg",
+      "background": "art/bg-clocktower-dark.jpg",
       "palette": ["#1a2238", "#4a5a78", "#e8dcc0", "#d8a03a"],
       "solids": [
         { "x": 0, "y": 1472, "w": 1280, "h": 128 },
@@ -115,7 +115,7 @@
       "role": "optional-pit",
       "width": 1800,
       "height": 720,
-      "background": "art/bg-basement.jpg",
+      "background": "art/bg-basement-dark.jpg",
       "palette": ["#1a1410", "#4a3a32", "#7a8a6a", "#3a5060"],
       "solids": [
         { "x": 0, "y": 592, "w": 1800, "h": 128 },
